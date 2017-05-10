@@ -1,17 +1,22 @@
 package example.com.coolweather;
 
 import android.annotation.TargetApi;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Build;
 import android.preference.Preference;
 import android.preference.PreferenceManager;
+import android.support.v4.view.GravityCompat;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -45,6 +50,10 @@ public class WeatherActivity extends AppCompatActivity {
     private TextView titlecity;
     private TextView title_update_time;
     private ImageView background;
+    public SwipeRefreshLayout swipeRefresh;
+    private String weatherid;
+    private Button home;
+    public DrawerLayout drawerLayout;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -55,6 +64,10 @@ public class WeatherActivity extends AppCompatActivity {
             window.setStatusBarColor(Color.TRANSPARENT);
         }
         setContentView(R.layout.activity_weather);
+        home= (Button) findViewById(R.id.button);
+        drawerLayout= (DrawerLayout) findViewById(R.id.drawer_layout);
+        swipeRefresh= (SwipeRefreshLayout) findViewById(R.id.swipe_refresh);
+        swipeRefresh.setColorSchemeResources(R.color.colorPrimary);
         weatherlayout= (ScrollView) findViewById(R.id.weather_layout);
         titlecity= (TextView) findViewById(R.id.title_city);
         title_update_time= (TextView) findViewById(R.id.title_update_time);
@@ -71,22 +84,35 @@ public class WeatherActivity extends AppCompatActivity {
         String weatherstring=sharedPreferences.getString("weather",null);
         if (weatherstring!=null){
                 Weather weather=Utiltool.handleWeatherResponse(weatherstring);
+                weatherid=weather.basic.cityId;
                 showWeatherinfo(weather);
         }else {
-            String weatherid=getIntent().getStringExtra("weather_id");
+             weatherid=getIntent().getStringExtra("weather_id");
             weatherlayout.setVisibility(View.INVISIBLE);
             sendrequest(weatherid);
         }
+        swipeRefresh.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                sendrequest(weatherid);
+                loadimage();
+            }
+        });
         String image=sharedPreferences.getString("image_pic",null);
         if (image!=null){
             Glide.with(this).load(image).into(background);
         }else {
             loadimage();
         }
+        home.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                drawerLayout.openDrawer(GravityCompat.START);
+            }
+        });
 
     }
-
-    private void sendrequest(String weatherid) {
+    public void sendrequest(String weatherid) {
         String weatherurl="https://free-api.heweather.com/v5/weather?city="
                 +weatherid+"&key=1895b568c2314fe688598dff000fd590";
         Httputil.sendHttpuriRequest(weatherurl, new Callback() {
@@ -97,6 +123,7 @@ public class WeatherActivity extends AppCompatActivity {
                     public void run() {
                         Toast.makeText(WeatherActivity.this,"获取天气信息失败",
                                 Toast.LENGTH_SHORT).show();
+                        swipeRefresh.setRefreshing(false);
                     }
                 });
 
@@ -118,6 +145,7 @@ public class WeatherActivity extends AppCompatActivity {
                             Toast.makeText(WeatherActivity.this,"获取天气信息失败",
                                     Toast.LENGTH_SHORT).show();
                         }
+                        swipeRefresh.setRefreshing(false);
                     }
                 });
 
@@ -158,6 +186,7 @@ public class WeatherActivity extends AppCompatActivity {
                 title_update_time.setText(updatetime);
                 degresstext.setText(temperature);
                 weatherinfotext.setText(info);
+                forecastlayout.removeAllViews();
                 for (Forecast forecast:weather.forecasts){
                     View view= LayoutInflater.from(this).inflate(R.layout.forecast_item,forecastlayout,false);
                     TextView datatext= (TextView) view.findViewById(R.id.data_text);
@@ -187,5 +216,11 @@ public class WeatherActivity extends AppCompatActivity {
                 car_wash_text.setText(cw);
                 sporttext.setText(sport);
                 weatherlayout.setVisibility(View.VISIBLE);
+        if (weather!=null&&weather.status.equals("ok")){
+            Intent i=new Intent(WeatherActivity.this,Autoupdateservice.class);
+            startService(i);
+        }else {
+            Toast.makeText(this,"获取天气信息失败",Toast.LENGTH_SHORT).show();
+        }
     }
 }
