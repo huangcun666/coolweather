@@ -6,6 +6,7 @@ import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.IBinder;
+import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.support.annotation.IntDef;
 
@@ -33,11 +34,12 @@ public class Autoupdateservice extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         AlarmManager manager= (AlarmManager) getSystemService(ALARM_SERVICE);
-        long anHour=8*60*60*1000;
+        int anHour=8*60*60*1000;
+        long triggerattime= SystemClock.elapsedRealtime()+anHour;
         Intent intent1=new Intent(this,Autoupdateservice.class);
         PendingIntent pendingIntent=PendingIntent.getActivity(this,0,intent1,0);
         manager.cancel(pendingIntent);
-        manager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP,anHour,pendingIntent);
+        manager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP,triggerattime,pendingIntent);
         updateWeather();
         updateBingPic();
         return super.onStartCommand(intent, flags, startId);
@@ -75,7 +77,6 @@ public class Autoupdateservice extends Service {
                 public void onFailure(Call call, IOException e) {
 
                 }
-
                 @Override
                 public void onResponse(Call call, Response response) throws IOException {
                     String responsestr=response.body().string();
